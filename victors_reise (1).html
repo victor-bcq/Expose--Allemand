@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Victors Reise: Auf der Entdeckung von Deutschland und Österreich</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Police d'écriture -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #2d3436;
+            --accent: #0984e3;
+            --bg: #ffffff;
+            --text: #333333;
+            --light-bg: #f5f6fa;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            color: var(--text);
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* Bannière Titre */
+        .site-title-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 30px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: max-content;
+            max-width: 90%;
+        }
+
+        .site-title {
+            font-weight: 800;
+            font-size: 2.2rem;
+            color: var(--primary);
+            margin: 0;
+            text-align: center;
+        }
+
+        /* Panneau d'information */
+        #info-panel {
+            position: absolute;
+            top: 0;
+            right: -550px; 
+            width: 500px;
+            height: 100vh;
+            background: var(--bg);
+            box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+            z-index: 1000;
+            transition: right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #info-panel.active {
+            right: 0;
+        }
+
+        .panel-header {
+            background: var(--primary);
+            color: white;
+            padding: 25px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        .panel-content {
+            padding: 20px;
+        }
+
+        /* Points Clés (Highlights) */
+        .highlights-section {
+            background: var(--light-bg);
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 25px;
+        }
+
+        .highlights-section h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            color: var(--primary);
+        }
+
+        .highlights-list {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .highlights-list li {
+            margin-bottom: 6px;
+        }
+
+        /* Grille des 4 Photos */
+        .photos-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .photo-card {
+            background: var(--light-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #dcdde1;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .photo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .photo-wrapper {
+            width: 100%;
+            height: 140px;
+            background: #dfe6e9;
+            position: relative;
+        }
+
+        .photo-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Légende déroulante */
+        .photo-caption {
+            padding: 8px 10px;
+            font-size: 0.8rem;
+            color: #555;
+            height: 60px; /* Hauteur fixe pour forcer le scroll */
+            overflow-y: auto; /* Défilement vertical activé */
+            background: #fff;
+            border-top: 1px solid #eee;
+            line-height: 1.4;
+        }
+
+        /* Scrollbar style pour la légende */
+        .photo-caption::-webkit-scrollbar { width: 5px; }
+        .photo-caption::-webkit-scrollbar-track { background: #f1f1f1; }
+        .photo-caption::-webkit-scrollbar-thumb { background: #b2bec3; border-radius: 5px; }
+
+        /* Audio */
+        .audio-player {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        audio {
+            width: 100%;
+            height: 40px;
+        }
+
+        /* Animation de l'Avatar Victor sur la carte */
+        .victor-avatar {
+            transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            /* Suppression du rond, des bordures et du fond pour afficher le PNG brut avec sa transparence */
+            z-index: 500 !important;
+            object-fit: contain !important; /* Garde les proportions de ton image PNG */
+        }
+
+        @media (max-width: 768px) {
+            #info-panel { width: 100%; right: -100%; }
+            .site-title-container { 
+                left: 10px; 
+                right: 10px; 
+                top: 10px; 
+                transform: none; 
+                width: auto;
+            }
+            .site-title { font-size: 1.4rem; }
+            .photos-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Lightbox (Affichage des photos en grand) */
+        #lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #lightbox.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        #lightbox img {
+            max-width: 90%;
+            max-height: 75vh;
+            border-radius: 8px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+            object-fit: contain;
+        }
+
+        #lightbox-caption {
+            color: white;
+            margin-top: 20px;
+            font-size: 1.1rem;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 50px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .lightbox-close:hover {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Bannière Titre -->
+    <div class="site-title-container">
+        <p class="site-title">🗺️ Victors Reise: Auf der Entdeckung von Deutschland und Österreich</p>
+    </div>
+
+    <!-- Carte Leaflet -->
+    <div id="map"></div>
+
+    <!-- Panneau latéral -->
+    <div id="info-panel">
+        <div class="panel-header">
+            <button class="close-btn" onclick="closePanel()">×</button>
+            <h2 id="ep-title" style="margin: 0; font-size: 1.4rem;">Titel</h2>
+        </div>
+        
+        <div class="panel-content">
+            <!-- Lecteur Audio -->
+            <div class="audio-player">
+                <p style="margin: 0 0 8px 0; font-weight: 600; font-size: 0.95rem;">🎙️ Podcast anhören:</p>
+                <audio id="ep-audio" controls>
+                    <source src="" type="audio/mpeg">
+                    Ihr Browser unterstützt das Audio-Element nicht.
+                </audio>
+            </div>
+
+            <!-- Points Clés -->
+            <div class="highlights-section">
+                <h3>📍 Wichtige Orte & Highlights</h3>
+                <ul class="highlights-list" id="ep-highlights">
+                    <!-- Généré dynamiquement -->
+                </ul>
+            </div>
+
+            <!-- Grille des Photos -->
+            <div id="ep-photos-container">
+                <!-- Généré dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox pour les images en grand -->
+    <div id="lightbox" onclick="if(event.target === this) closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()" title="Schließen">×</button>
+        <img id="lightbox-img" src="" alt="Bild groß">
+        <div id="lightbox-caption"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // --- 1. DONNÉES DU VOYAGE (En Allemand, avec points clés und 4 photos) ---
+        const tripData = [
+            {
+                id: 1,
+                coords: [47.5209, 9.7249], 
+                title: "Episode 1: Bodensee-Region",
+                highlights: [
+                    "Spaziergang durch die historischen Straßen von Lindau",
+                    "Der kleine und ruhige Hafen von Lindau",
+                    "Bootsfahrt über den See nach Bregenz",
+                    "Die riesige Seebühne der Bregenzer Festspiele",
+                    "Klassische Opernaufführung bei Sonnenuntergang"
+                ],
+                audioUrl: "musiques/Episode1.mp3",
+                photos: [
+                    { title: "lindau_hafen.jpg", url: "", caption: "Ein Bild vom ruhigen Hafen in Lindau mit den alten Häusern im Hintergrund, an dem ich spazieren war." },
+                    { title: "bootsfahrt_bregenz.jpg", url: "", caption: "Ein schönes Foto von meiner Fahrt auf dem Bodensee mit Blick auf das Wasser." },
+                    { title: "seebuehne_konstruktion.jpg", url: "", caption: "Die beeindruckende Ingenieurskunst der schwimmenden Bühne bei Tag." },
+                    { title: "oper_sonnenuntergang.jpg", url: "", caption: "Ein stimmungsvolles Foto der Show am Abend mit dem Sonnenuntergang über dem See, die ich mir angesehen habe." }
+                ]
+            },
+            {
+                id: 2,
+                coords: [47.2692, 11.4041], 
+                title: "Episode 2: Innsbruck & Ötztal (Tirol)",
+                highlights: [
+                    "Fahrt mit der Bergbahn mitten aus der Stadt",
+                    "Moderne Nordkettenbahn-Station (Architektin Zaha Hadid)",
+                    "Snowboarden auf den verschneiten Pisten über der Stadt",
+                    "Adrenalin pur im Area 47 Freizeitpark",
+                    "Water-Jump und Extremsport im Ötztal"
+                ],
+                audioUrl: "musiques/Episode2.mp3",
+                photos: [
+                    { title: "zaha_hadid_station.jpg", url: "", caption: "Die supermoderne Architektur der Bergbahn-Station, die ich als tollen Kontrast zur Natur empfunden habe." },
+                    { title: "snowboard_aussicht.jpg", url: "", caption: "Ein Foto von mir auf dem Snowboard mit dem Wahnsinnsblick auf Innsbruck tief unten." },
+                    { title: "area47_park.jpg", url: "", caption: "Eine allgemeine Aufnahme des Area 47 Parks, in dem ich den Nachmittag verbracht habe." },
+                    { title: "water_jump_action.jpg", url: "", caption: "Ein lustiges Action-Foto von mir beim Water-Jump. Das war ein Riesenspaß – und hat mir ordentlich Muskelkater beschert!" }
+                ]
+            },
+            {
+                id: 3,
+                coords: [48.1351, 11.5820], 
+                title: "Episode 3: München (Bayern)",
+                highlights: [
+                    "Englischer Garten und die berühmte Eisbachwelle",
+                    "Beobachten der Surfer mitten unter den Bäumen",
+                    "Besuch im Deutschen Museum (Wissenschaft & Technik)",
+                    "Alte Synthesizer und Maschinen in der Musikabteilung",
+                    "Münchner Techno-Szene im Blitz Club bis spät in die Nacht"
+                ],
+                audioUrl: "musiques/Episode3.mp3",
+                photos: [
+                    { title: "eisbach_surfer.jpg", url: "", caption: "Ein cooles Foto der Surfer auf der Eisbachwelle mitten im Park zwischen den Bäumen, die ich beobachtet habe." },
+                    { title: "deutsches_museum_synths.jpg", url: "", caption: "Die faszinierenden alten Synthesizer und Maschinen, die ich im Museum bewundert habe." },
+                    { title: "blitz_club_stimmung.jpg", url: "", caption: "Ein atmosphärisches Foto aus dem Club, wo ich die lokale Techno-Szene ausgetestet habe." },
+                    { title: "muenchen_stadtblick.jpg", url: "", caption: "Ein entspanntes Bild von meinem Spaziergang durch den Englischen Garten." }
+                ]
+            },
+            {
+                id: 4,
+                coords: [47.8095, 13.0550], 
+                title: "Episode 4: Salzburg & Hallein",
+                highlights: [
+                    "Spaziergang durch die historische Salzburger Altstadt",
+                    "Auf den Spuren von Mozart mit klassischer Straßenmusik",
+                    "Essen einer echten traditionellen Brezel",
+                    "Abstieg tief unter den Berg in Bergmannskleidung",
+                    "Bootsfahrt auf dem unterirdischen See und Fahrt auf den Holzrutschen"
+                ],
+                audioUrl: "musiques/Episode4.mp3",
+                photos: [
+                    { title: "salzburg_altstadt.jpg", url: "", caption: "Ein Bild von meinem Spaziergang durch die schönen alten Gassen von Salzburg, der Stadt von Mozart." },
+                    { title: "echte_brezel.jpg", url: "", caption: "Ein leckeres Foto von der echten Brezel, die ich auf der Straße gegessen habe." },
+                    { title: "salzbergwerk_kleidung.jpg", url: "", caption: "Ein lustiges Foto von mir in der Bergmannskleidung vor dem Abstieg in die Mine." },
+                    { title: "holzrutsche_mine.jpg", url: "", caption: "Ein Action-Bild von meiner rasanten Fahrt auf den unterirdischen Holzrutschen im Dunkeln." }
+                ]
+            },
+            {
+                id: 5,
+                coords: [48.3069, 14.2858], 
+                title: "Episode 5: Linz",
+                highlights: [
+                    "Besuch im Ars Electronica Center (Museum der Zukunft)",
+                    "Fokus auf Künstliche Intelligenz und künstlerisches Schaffen",
+                    "Computerprogramme, die in Echtzeit Töne erzeugen",
+                    "Interaktion mit Musikstücken durch Sensoren und Handbewegungen",
+                    "Spannender Austausch mit einem lokalen Studenten"
+                ],
+                audioUrl: "musiques/Episode5.mp3",
+                photos: [
+                    { title: "ars_electronica_center.jpg", url: "", caption: "Ein Bild meines Besuchs im beeindruckenden Museum der Zukunft in Linz." },
+                    { title: "ki_musik_generierung.jpg", url: "", caption: "Eine Installation, die ich gesehen habe, bei der Code in Echtzeit Töne erzeugt." },
+                    { title: "sensor_interaktion.jpg", url: "", caption: "Ein Foto von mir, wie ich mit meinen Händen vor dem Sensor Musik manipuliere." },
+                    { title: "student_gespraech.jpg", url: "", caption: "Ein Bild, das die tech-begeisterte Atmosphäre meines Gesprächs mit einem Studenten vor Ort einfängt." }
+                ]
+            },
+            {
+                id: 6,
+                coords: [48.2082, 16.3738], 
+                title: "Episode 6: Wien",
+                highlights: [
+                    "Pause im traditionellen Café Hawelka (Apfelstrudel & Kaffee)",
+                    "Haus der Musik: Interaktives Museum über Klang",
+                    "Versuch, die virtuellen Philharmoniker mit dem Zauberstab zu dirigieren",
+                    "Spaziergang am Donaukanal bei Sonnenuntergang (Street-Art)",
+                    "Letzte Nacht in einem Open-Air-Club für elektronische Musik"
+                ],
+                audioUrl: "musiques/Episode6.mp3",
+                photos: [
+                    { title: "cafe_hawelka_apfelstrudel.jpg", url: "", caption: "Ein gemütliches Foto von meinem echten warmen Apfelstrudel und meinem Wiener Kaffee." },
+                    { title: "haus_der_musik_dirigent.jpg", url: "", caption: "Ein witziges Foto, wie ich (viel zu schnell) versuche, das virtuelle Orchester zu dirigieren." },
+                    { title: "donaukanal_sonnenuntergang.jpg", url: "", caption: "Ein schönes Bild der bunten Street-Art am Donaukanal, wo ich im Abendlicht spazieren war." },
+                    { title: "wien_open_air_techno.jpg", url: "", caption: "Ein Foto von der entspannten Atmosphäre im Open-Air-Club an meinem letzten Abend." }
+                ]
+            }
+        ];
+
+        // --- 2. INITIALISATION DE LA CARTE ---
+        const map = L.map('map', {zoomControl: false}).setView([47.8, 13.0], 7);
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        const latlngs = tripData.map(stop => stop.coords);
+
+        // Ligne de l'itinéraire
+        L.polyline(latlngs, {
+            color: '#0984e3',
+            weight: 4,
+            opacity: 0.7,
+            dashArray: '10, 10'
+        }).addTo(map);
+
+        // --- 3. AVATAR VICTOR (Animation PNG) ---
+        const victorIcon = L.icon({
+            iconUrl: 'images/mon_avatar.png', 
+            iconSize: [240, 240], // Taille encore plus grande
+            iconAnchor: [120, 120], // Ancrage ajusté pour centrer (moitié de 240)
+            className: 'victor-avatar' // Classe pour l'animation CSS
+        });
+
+        // On initialise le marqueur Victor, aber on ne l'ajoute pas tout de suite
+        let victorMarker = null;
+
+        // --- 4. MARQUEURS DES ÉTAPES ---
+        tripData.forEach((stop, index) => {
+            const marker = L.circleMarker(stop.coords, {
+                radius: 8,
+                fillColor: "#e74c3c",
+                color: "#ffffff",
+                weight: 2,
+                fillOpacity: 1
+            }).addTo(map);
+
+            marker.bindTooltip(`Episode ${index + 1}`, { permanent: false, direction: 'top' });
+
+            marker.on('click', () => {
+                openPanel(stop);
+                map.flyTo(stop.coords, 9, { duration: 0.8 });
+
+                // Gérer le déplacement de l'avatar
+                if (!victorMarker) {
+                    // S'il n'est pas sur la carte, on l'ajoute aux coordonnées cliquées
+                    victorMarker = L.marker(stop.coords, {icon: victorIcon}).addTo(map);
+                } else {
+                    // S'il y est déjà, l'animation CSS fera le déplacement de manière fluide
+                    victorMarker.setLatLng(stop.coords);
+                }
+            });
+        });
+
+        // --- 5. GESTION DU PANNEAU LATÉRAL ---
+        const panel = document.getElementById('info-panel');
+        const epTitle = document.getElementById('ep-title');
+        const epHighlights = document.getElementById('ep-highlights');
+        const epAudio = document.getElementById('ep-audio');
+        const epPhotosContainer = document.getElementById('ep-photos-container');
+
+        function openPanel(data) {
+            epTitle.innerText = data.title;
+
+            // Audio
+            if(data.audioUrl) {
+                epAudio.src = data.audioUrl;
+            } else {
+                epAudio.src = "";
+            }
+
+            // Highlights
+            epHighlights.innerHTML = "";
+            data.highlights.forEach(hl => {
+                const li = document.createElement('li');
+                li.innerText = hl;
+                epHighlights.appendChild(li);
+            });
+
+            // Grille de 4 Photos
+            let photosHtml = '<div class="photos-grid">';
+            data.photos.forEach(photo => {
+                // On utilise le dossier 'images/'. 
+                // Si l'image a été téléchargée en .webp, le "onerror" l'affichera automatiquement !
+                let finalUrl = photo.url !== "" ? photo.url : 'images/' + photo.title;
+                let webpSrc = finalUrl.replace('.jpg', '.webp');
+                
+                photosHtml += `
+                    <div class="photo-card" onclick="openLightbox('${finalUrl}', '${photo.caption.replace(/'/g, "\\'")}', '${webpSrc}')">
+                        <div class="photo-wrapper">
+                            <img src="${finalUrl}" onerror="this.onerror=null; this.src='${webpSrc}';" alt="${photo.title}">
+                        </div>
+                        <div class="photo-caption">
+                            ${photo.caption}
+                        </div>
+                    </div>
+                `;
+            });
+            photosHtml += '</div>';
+            epPhotosContainer.innerHTML = photosHtml;
+
+            panel.classList.add('active');
+        }
+
+        function closePanel() {
+            panel.classList.remove('active');
+            epAudio.pause();
+            map.flyToBounds(L.polyline(latlngs).getBounds(), { padding: [50, 50], duration: 0.8 });
+        }
+
+        // --- 6. GESTION DE LA LIGHTBOX (Photos en grand) ---
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const lightboxCaption = document.getElementById('lightbox-caption');
+
+        function openLightbox(imgSrc, caption, webpFallback) {
+            lightboxImg.src = imgSrc;
+            
+            // Sécurité : si la grande image échoue en .jpg, on tente le .webp
+            lightboxImg.onerror = function() {
+                this.onerror = null;
+                this.src = webpFallback;
+            };
+            
+            lightboxCaption.innerText = caption;
+            lightbox.classList.add('active');
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+            // Petit délai pour laisser l'animation de fermeture se faire en douceur
+            setTimeout(() => { lightboxImg.src = ''; }, 300);
+        }
+
+        map.fitBounds(L.polyline(latlngs).getBounds(), { padding: [50, 50] });
+
+    </script>
+</body>
+</html>
